@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PetPal Appointments</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+  <div class="container my-5">
+    <h1 class="text-primary mb-4">PetPal Appointment Scheduler</h1>
+
+    <div class="card p-4 mb-4 shadow-sm">
+      <h4>Add Appointment</h4>
+      <div class="mb-3">
+        <input type="text" class="form-control mb-2" id="petName" placeholder="Pet Name" />
+        <input type="text" class="form-control mb-2" id="ownerName" placeholder="Owner Name" />
+        <input type="date" class="form-control mb-2" id="date" />
+        <input type="text" class="form-control mb-2" id="reason" placeholder="Reason for Visit" />
+        <button class="btn btn-success" onclick="addAppointment()">Add</button>
+      </div>
+    </div>
+
+    <h4 class="mb-3">Appointments</h4>
+    <button class="btn btn-primary mb-3" onclick="loadAppointments()">Refresh</button>
+    <ul class="list-group" id="appointmentList"></ul>
+  </div>
+
+  <script>
+    async function addAppointment() {
+      const petName = document.getElementById("petName").value;
+      const ownerName = document.getElementById("ownerName").value;
+      const date = document.getElementById("date").value;
+      const reason = document.getElementById("reason").value;
+
+      const res = await fetch("/appointments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ petName, ownerName, date, reason })
+      });
+
+      if (res.ok) {
+        alert("Appointment added!");
+        loadAppointments();
+        document.getElementById("petName").value = "";
+        document.getElementById("ownerName").value = "";
+        document.getElementById("date").value = "";
+        document.getElementById("reason").value = "";
+      } else {
+        alert("Failed to add appointment.");
+      }
+    }
+
+    async function loadAppointments() {
+      const res = await fetch("/appointments");
+      const data = await res.json();
+
+      const list = document.getElementById("appointmentList");
+      list.innerHTML = "";
+      if (data.length === 0) {
+        list.innerHTML = `<li class="list-group-item">No appointments found.</li>`;
+        return;
+      }
+
+      data.forEach(app => {
+        const li = document.createElement("li");
+        li.className = "list-group-item d-flex justify-content-between align-items-center";
+        li.innerHTML = `
+          <div>
+            <strong>${app.petName}</strong> (Owner: ${app.ownerName})<br>
+            <small>${app.date} - ${app.reason}</small>
+          </div>
+          <button class="btn btn-sm btn-danger" onclick="deleteAppointment(${app.id})">Delete</button>
+        `;
+        list.appendChild(li);
+      });
+    }
+
+    async function deleteAppointment(id) {
+      const res = await fetch("/appointments/" + id, { method: "DELETE" });
+      if (res.status === 204) {
+        loadAppointments();
+      } else {
+        alert("Failed to delete appointment.");
+      }
+    }
+
+    // Initial load
+    loadAppointments();
+  </script>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

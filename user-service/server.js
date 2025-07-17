@@ -2,30 +2,43 @@ const express = require("express");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const app = express();
+
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-const users = []; // temporary mock DB
+// Serve static files from the 'public' folder
+app.use(express.static('public'));
 
-// Registration
+const users = []; // In-memory DB with {id, username, password}
+
+// Registration - POST /register expects { username, password }
 app.post("/register", async (req, res) => {
   const { username, password } = req.body;
+  if (!username || !password)
+    return res.status(400).json({ error: "Username and password required" });
+
+  if (users.find(u => u.username === username))
+    return res.status(400).json({ error: "Username already exists" });
+
   const hashed = await bcrypt.hash(password, 10);
   users.push({ id: users.length + 1, username, password: hashed });
-  res.status(201).send("User registered");
+  res.status(201).json({ message: "User registered" });
 });
 
-// Login
+// Login - POST /login expects { username, password }
 app.post("/login", async (req, res) => {
   const { username, password } = req.body;
-  const user = users.find((u) => u.username === username);
-  if (!user || !(await bcrypt.compare(password, user.password))) {
-    return res.status(401).send("Invalid credentials");
-  }
+  const user = users.find(u => u.username === username);
+  if (!user) return res.status(401).json({ error: "Invalid credentials" });
+
+  const validPass = await bcrypt.compare(password, user.password);
+  if (!validPass) return res.status(401).json({ error: "Invalid credentials" });
+
   const token = jwt.sign({ userId: user.id }, "secretkey");
   res.json({ token });
 });
 
-// Serve decorated HTML page at /users when browser requests HTML
+// GET /users - Serve HTML UI if browser, else JSON API
 app.get('/users', (req, res) => {
   const acceptsHtml = req.headers.accept && req.headers.accept.includes('text/html');
   if (acceptsHtml) {
@@ -36,16 +49,15 @@ app.get('/users', (req, res) => {
       <meta charset="UTF-8" />
       <meta name="viewport" content="width=device-width, initial-scale=1" />
       <title>PetPal Users</title>
-      <!-- Bootstrap CSS CDN -->
-      <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+      <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
     </head>
     <body>
       <div class="container my-5">
         <h1 class="mb-4 text-primary">PetPal User Management</h1>
 
         <div class="mb-3">
-          <label for="username" class="form-label">Add New User</label>
-          <input type="text" class="form-control" id="username" placeholder="Enter user name" />
+          <label for="username" class="form-label">Add New User (username only)</label>
+          <input type="text" class="form-control" id="username" placeholder="Enter username" />
           <button class="btn btn-success mt-2" onclick="addUser()">Add User</button>
         </div>
 
@@ -57,20 +69,20 @@ app.get('/users', (req, res) => {
       <script>
         async function addUser() {
           const nameInput = document.getElementById('username');
-          const name = nameInput.value.trim();
-          if (!name) {
-            alert('Please enter a user name');
+          const username = nameInput.value.trim();
+          if (!username) {
+            alert('Please enter a username');
             return;
           }
           try {
             const res = await fetch('/users', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ name })
+              body: JSON.stringify({ username })
             });
             if (!res.ok) throw new Error('Failed to add user');
             const data = await res.json();
-            alert('User added: ' + data.name + ' (ID: ' + data.id + ')');
+            alert('User added: ' + data.username + ' (ID: ' + data.id + ')');
             nameInput.value = '';
             fetchUsers();
           } catch (e) {
@@ -93,7 +105,7 @@ app.get('/users', (req, res) => {
               users.forEach(user => {
                 const li = document.createElement('li');
                 li.className = 'list-group-item';
-                li.textContent = user.id + ': ' + user.name;
+                li.textContent = user.id + ': ' + user.username;
                 list.appendChild(li);
               });
             }
@@ -105,27 +117,27 @@ app.get('/users', (req, res) => {
         fetchUsers();
       </script>
 
-      <!-- Bootstrap JS Bundle CDN (optional for Bootstrap features) -->
       <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     </body>
     </html>
     `);
   } else {
-    // API clients get JSON
-    res.json(users);
+    // Return JSON API
+    // Return users but WITHOUT passwords for security
+    res.json(users.map(({ id, username }) => ({ id, username })));
   }
 });
 
-// POST endpoint to add user (API)
+// POST /users - Add new user (username only) for UI (no password, no auth)
 app.post('/users', (req, res) => {
-  const { name } = req.body;
-  const newUser = { id: users.length + 1, name };
-  users.push(newUser);
-  res.status(201).json(newUser);
-});
+  const { username } = req.body;
+  if (!username) return res.status(400).json({ error: "Username required" });
+  if (users.find(u => u.username === username))
+    return res.status(400).json({ error: "Username already exists" });
 
-app.get('/users', (req, res) => {
-  res.json(users);
+  // Password will be empty string, as this route doesn't require it
+  users.push({ id: users.length + 1, username, password: "" });
+  res.status(201).json({ id: users.length, username });
 });
 
 app.listen(3001, () => console.log("User Service on port 3001"));
