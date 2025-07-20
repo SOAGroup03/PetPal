@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>User Profile - PetPal</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #f0f4f8;
+      margin: 0; padding: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+    }
+    .container {
+      background: #fff;
+      padding: 2.5rem 3rem;
+      border-radius: 10px;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+      max-width: 400px;
+      width: 100%;
+    }
+    h2 {
+      margin-bottom: 1.5rem;
+      color: #333;
+      text-align: center;
+      font-weight: 700;
+    }
+    p {
+      font-size: 1rem;
+      margin-bottom: 1rem;
+      color: #555;
+    }
+    label {
+      display: block;
+      margin-bottom: 0.5rem;
+      font-weight: 600;
+      color: #444;
+    }
+    input[type="text"] {
+      width: 100%;
+      padding: 0.6rem 0.8rem;
+      border-radius: 5px;
+      border: 1.8px solid #ddd;
+      font-size: 1rem;
+      margin-bottom: 1.5rem;
+      transition: border-color 0.3s;
+    }
+    input[type="text"]:focus {
+      outline: none;
+      border-color: #4a90e2;
+      box-shadow: 0 0 8px rgba(74,144,226,0.3);
+    }
+    button {
+      width: 100%;
+      padding: 0.75rem;
+      border: none;
+      background-color: #4a90e2;
+      color: white;
+      font-size: 1.1rem;
+      font-weight: 600;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: background-color 0.3s;
+      margin-bottom: 1rem;
+    }
+    button:hover {
+      background-color: #357abd;
+    }
+    #logout-btn {
+      background-color: #e74c3c;
+    }
+    #logout-btn:hover {
+      background-color: #c0392b;
+    }
+    .footer-links {
+      text-align: center;
+      margin-top: 1rem;
+    }
+    .footer-links a {
+      color: #4a90e2;
+      text-decoration: none;
+      margin: 0 0.5rem;
+      font-weight: 600;
+      font-size: 0.9rem;
+    }
+    .footer-links a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>Your Profile</h2>
+    <p><strong>Username:</strong> <span id="username-display"></span></p>
+
+    <form id="edit-form" autocomplete="off">
+      <label for="username">Edit Username:</label>
+      <input type="text" id="username" name="username" required />
+      <button type="submit">Update Username</button>
+    </form>
+
+    <button id="logout-btn">Logout</button>
+
+    <div class="footer-links">
+      <a href="/change-password.html">Change Password</a>
+      <a href="/home.html">Home</a>
+    </div>
+  </div>
+
+  <script>
+    const token = localStorage.getItem("token");
+
+    if (!token) {
+      window.location.href = "/login.html";
+    }
+
+    function parseJwt(token) {
+      try {
+        return JSON.parse(atob(token.split('.')[1]));
+      } catch (e) {
+        return null;
+      }
+    }
+
+    const user = parseJwt(token);
+    if (user) {
+      document.getElementById("username-display").textContent = user.username;
+      document.getElementById("username").value = user.username;
+    }
+
+    document.getElementById("edit-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const newUsername = document.getElementById("username").value.trim();
+
+      if (!newUsername) {
+        alert("Username cannot be empty");
+        return;
+      }
+
+      const res = await fetch("/update-profile", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ username: newUsername }),
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        alert("Username updated. Please log in again.");
+        localStorage.removeItem("token");
+        window.location.href = "/login.html";
+      } else {
+        alert(data.error || "Update failed.");
+      }
+    });
+
+    document.getElementById("logout-btn").addEventListener("click", () => {
+      localStorage.removeItem("token");
+      window.location.href = "/login.html";
+    });
+  </script>
+</body>
+</html>

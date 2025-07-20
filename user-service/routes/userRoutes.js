@@ -1,15 +1,10 @@
-const express = require("express");
+const express = require('express');
 const router = express.Router();
-const {
-  register,
-  login,
-  getUsers,
-  addUser,
-} = require("../controllers/userController");
+const userCtrl = require('../controllers/userController');
+const auth = require('../middleware/auth');
 
-router.get("/users", getUsers);      // JSON data
-router.post("/users", addUser);      // Add from UI
-router.post("/register", register);  // Register with password
-router.post("/login", login);        // Login + JWT
+router.post('/register', userCtrl.register);
+router.post('/login', userCtrl.login);
+router.get('/users', auth, userCtrl.getUsers);
 
 module.exports = router;

@@ -1,50 +1,55 @@
 const express = require("express");
-const bodyParser = require("body-parser");
-const cors = require("cors");
 const path = require("path");
+const cors = require("cors");
 
 const app = express();
 app.use(cors());
-app.use(bodyParser.json());
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-// Serve static files
-app.use(express.static(path.join(__dirname, 'public')));
+// Serve static files from 'public'
+app.use(express.static(path.join(__dirname, "public")));
 
-// In-memory database for appointments
-const appointments = [];
+let appointments = []; // In-memory DB
 
-// GET all appointments
+// Redirect base URL to index.html
+app.get("/", (req, res) => {
+  res.redirect("/index.html");
+});
+
+// Get all appointments
 app.get("/appointments", (req, res) => {
   res.json(appointments);
 });
 
-// POST new appointment
+// Add new appointment
 app.post("/appointments", (req, res) => {
   const { petName, ownerName, date, reason } = req.body;
+  if (!petName || !ownerName || !date || !reason) {
+    return res.status(400).json({ error: "All fields are required" });
+  }
   const newAppointment = {
     id: appointments.length + 1,
     petName,
     ownerName,
     date,
-    reason
+    reason,
   };
   appointments.push(newAppointment);
   res.status(201).json(newAppointment);
 });
 
-// DELETE appointment by ID
+// Delete appointment by id
 app.delete("/appointments/:id", (req, res) => {
   const id = parseInt(req.params.id);
-  const index = appointments.findIndex(app => app.id === id);
+  const index = appointments.findIndex((a) => a.id === id);
   if (index !== -1) {
     appointments.splice(index, 1);
-    res.status(204).send();
-  } else {
-    res.status(404).send("Appointment not found");
+    return res.status(204).send();
   }
+  res.status(404).json({ error: "Appointment not found" });
 });
 
-// ✅ Match this with Docker (should be 3002 if you're exposing 3002)
 app.listen(3003, () => {
-  console.log("Appointment Service running on port 3002");
+  console.log("Appointment Service running on port 3003");
 });

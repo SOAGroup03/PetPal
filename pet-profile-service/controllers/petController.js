@@ -1,29 +1,32 @@
 const Pet = require('../models/Pet');
 
 exports.createPet = async (req, res) => {
-  try {
-    const pet = new Pet(req.body);
-    await pet.save();
-    res.status(201).json(pet);
-  } catch (err) {
-    res.status(400).json({ error: err.message });
-  }
+  const pet = new Pet({ ...req.body, owner: req.user.userId });
+  await pet.save();
+  res.status(201).json(pet);
 };
 
-exports.getPetsByOwner = async (req, res) => {
-  try {
-    const pets = await Pet.find({ ownerId: req.params.ownerId });
-    res.json(pets);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+exports.getUserPets = async (req, res) => {
+  const pets = await Pet.find({ owner: req.user.userId });
+  res.json(pets);
+};
+
+exports.getPetById = async (req, res) => {
+  const pet = await Pet.findOne({ _id: req.params.id, owner: req.user.userId });
+  if (!pet) return res.status(404).json({ error: 'Not found' });
+  res.json(pet);
 };
 
 exports.updatePet = async (req, res) => {
-  try {
-    const pet = await Pet.findByIdAndUpdate(req.params.id, req.body, { new: true });
-    res.json(pet);
-  } catch (err) {
-    res.status(400).json({ error: err.message });
-  }
+  const pet = await Pet.findOneAndUpdate(
+    { _id: req.params.id, owner: req.user.userId },
+    req.body,
+    { new: true }
+  );
+  res.json(pet);
+};
+
+exports.deletePet = async (req, res) => {
+  await Pet.findOneAndDelete({ _id: req.params.id, owner: req.user.userId });
+  res.json({ message: 'Deleted' });
 };
