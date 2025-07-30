@@ -22,36 +22,6 @@ A comprehensive microservices-based pet care management system built with Flask,
 - **Container Registry**: `gcr.io/petpal-467223`
 - **Region**: `us-central1`
 
-## 🚀 Quick Start
-
-### Option 1: Local Development with Docker Compose
-```bash
-# 1. Create project structure
-mkdir -p petpal && cd petpal
-
-# 2. Copy all files from artifacts to respective directories
-
-# 3. Run with Docker Compose
-docker-compose up --build
-
-# 4. Access applications
-# Frontend: http://localhost:5000
-# Prometheus: http://localhost:9090
-# Grafana: http://localhost:3000 (admin/petpal123)
-```
-
-### Option 2: Google Cloud Deployment
-```bash
-# 1. Ensure you have Google Cloud SDK installed
-# 2. Make scripts executable
-chmod +x scripts/*.sh
-
-# 3. Run automated deployment
-./scripts/build-and-deploy.sh
-
-# 4. Access via LoadBalancer IPs provided in output
-```
-
 ## 📁 Project Structure
 
 ```
@@ -159,39 +129,7 @@ python frontend/app.py
 - Load balancing with GCP Load Balancer
 - Persistent storage for monitoring
 - Resource limits and requests
-
-## 🚀 Deployment Commands
-
-### Build and Deploy to Google Cloud
-```bash
-./scripts/build-and-deploy.sh
-```
-
-### Update Images
-```bash
-./scripts/update-images.sh
-```
-
-### Cleanup Resources
-```bash
-./scripts/cleanup.sh
-```
-
-### Manual Kubernetes Commands
-```bash
-# Apply all manifests
-kubectl apply -f kubernetes/
-
-# Check pod status
-kubectl get pods -n petpal
-
-# View logs
-kubectl logs -f deployment/user-service -n petpal
-
-# Scale deployment
-kubectl scale deployment user-service --replicas=5 -n petpal
-```
-
+- 
 ## 🗄️ Database Schema
 
 ### Users Collection
@@ -264,36 +202,6 @@ kubectl scale deployment user-service --replicas=5 -n petpal
 - Ensure IP is whitelisted in MongoDB Atlas
 - Verify connection string is correct
 
-**Kubernetes Pods Not Starting**
-```bash
-kubectl describe pod <pod-name> -n petpal
-kubectl logs <pod-name> -n petpal
-```
-
-**Service Communication Issues**
-```bash
-kubectl get services -n petpal
-kubectl get endpoints -n petpal
-```
-
-**Image Pull Errors**
-```bash
-# Re-authenticate with GCR
-gcloud auth configure-docker
-```
-
-### Monitoring Health
-```bash
-# Check all deployments
-kubectl get deployments -n petpal
-
-# Check HPA status  
-kubectl get hpa -n petpal
-
-# View resource usage
-kubectl top pods -n petpal
-```
-
 ## 🌟 Features
 
 ### User Management
@@ -321,31 +229,3 @@ kubectl top pods -n petpal
 - Real-time system monitoring
 - Performance dashboards
 - Resource utilization tracking
-
-## 📄 License
-
-This project is licensed under the MIT License.
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests
-5. Submit a pull request
-
-## 📞 Support
-
-For issues and questions:
-- Check the troubleshooting section
-- Review logs via `kubectl logs`
-- Monitor via Grafana dashboards
-- Create GitHub issues for bugs
-
----
-
-**🎉 PetPal is now ready for deployment!**
-
-Copy each artifact content to the respective files and run:
-- **Local**: `docker-compose up --build` 
-- **Cloud**: `./scripts/build-and-deploy.sh`
