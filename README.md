@@ -70,33 +70,6 @@ petpal/
 - `DELETE /api/medical/{id}` - Delete record
 - `GET /api/medical/pet/{pet_id}` - Get records by pet
 
-## 🛠️ Development Setup
-
-### Prerequisites
-- Docker & Docker Compose
-- Google Cloud SDK (for cloud deployment)
-- Python 3.9+ (for local development)
-
-### Local Development
-```bash
-# Run local setup script
-./scripts/local-setup.sh
-
-# Install dependencies for each service
-cd microservices/user-service && pip install -r requirements.txt
-cd ../pet-service && pip install -r requirements.txt
-cd ../appointment-service && pip install -r requirements.txt
-cd ../medical-service && pip install -r requirements.txt
-cd ../../frontend && pip install -r requirements.txt
-
-# Run each service in separate terminals
-python microservices/user-service/app.py
-python microservices/pet-service/app.py
-python microservices/appointment-service/app.py
-python microservices/medical-service/app.py
-python frontend/app.py
-```
-
 ## 📊 Monitoring
 
 ### Prometheus Metrics
