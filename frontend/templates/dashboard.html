@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - PetPal</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand" href="/dashboard">
+                <i class="fas fa-paw"></i> PetPal
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link active" href="/dashboard">Dashboard</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/pets">My Pets</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/appointments">Appointments</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/medical-history">Medical History</a>
+                    </li>
+                </ul>
+                <ul class="navbar-nav">
+                    <li class="nav-item">
+                        <span class="navbar-text me-3">Welcome, <span id="userName"></span>!</span>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/logout">Logout</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <div class="row">
+            <div class="col-12">
+                <h1 class="mb-4">Dashboard</h1>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-3 mb-4">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <i class="fas fa-dog fa-3x text-primary mb-3"></i>
+                        <h5 class="card-title">My Pets</h5>
+                        <p class="card-text" id="petCount">Loading...</p>
+                        <a href="/pets" class="btn btn-primary">View Pets</a>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 mb-4">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <i class="fas fa-calendar-alt fa-3x text-success mb-3"></i>
+                        <h5 class="card-title">Appointments</h5>
+                        <p class="card-text" id="appointmentCount">Loading...</p>
+                        <a href="/appointments" class="btn btn-success">View Appointments</a>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 mb-4">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <i class="fas fa-notes-medical fa-3x text-info mb-3"></i>
+                        <h5 class="card-title">Medical Records</h5>
+                        <p class="card-text" id="medicalCount">Loading...</p>
+                        <a href="/medical-history" class="btn btn-info">View Records</a>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 mb-4">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <i class="fas fa-user fa-3x text-warning mb-3"></i>
+                        <h5 class="card-title">Profile</h5>
+                        <p class="card-text">Manage your account</p>
+                        <button class="btn btn-warning" onclick="showProfile()">View Profile</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5>Recent Appointments</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="recentAppointments">Loading...</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5>Quick Actions</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="d-grid gap-2">
+                            <button class="btn btn-outline-primary" onclick="window.location.href='/pets'">Add New Pet</button>
+                            <button class="btn btn-outline-success" onclick="window.location.href='/appointments'">Schedule Appointment</button>
+                            <button class="btn btn-outline-info" onclick="window.location.href='/medical-history'">Add Medical Record</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Check authentication
+        const token = localStorage.getItem('token');
+        if (!token) {
+            window.location.href = '/login';
+        }
+
+        // Get service URLs
+        function getServiceUrls() {
+            const saved = localStorage.getItem('serviceUrls');
+            if (saved) {
+                return JSON.parse(saved);
+            }
+            
+            // Fallback to localhost
+            const host = window.location.hostname;
+            const protocol = window.location.protocol;
+            
+            return {
+                user: `${protocol}//${host}:5001`,
+                pet: `${protocol}//${host}:5002`,
+                appointment: `${protocol}//${host}:5003`,
+                medical: `${protocol}//${host}:5004`
+            };
+        }
+
+        const serviceUrls = getServiceUrls();
+
+        // Load user info
+        const user = JSON.parse(localStorage.getItem('user') || '{}');
+        document.getElementById('userName').textContent = user.first_name || 'User';
+
+        // Load dashboard data
+        async function loadDashboardData() {
+            try {
+                // Load pets count
+                console.log('Loading pets from:', serviceUrls.pet + '/api/pets/');
+                const petsResponse = await fetch(serviceUrls.pet + '/api/pets/', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (petsResponse.ok) {
+                    const petsData = await petsResponse.json();
+                    document.getElementById('petCount').textContent = `${petsData.pets.length} pets`;
+                } else {
+                    document.getElementById('petCount').textContent = 'Error loading';
+                    console.error('Failed to load pets:', petsResponse.status);
+                }
+
+                // Load appointments count
+                console.log('Loading appointments from:', serviceUrls.appointment + '/api/appointments/');
+                const appointmentsResponse = await fetch(serviceUrls.appointment + '/api/appointments/', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (appointmentsResponse.ok) {
+                    const appointmentsData = await appointmentsResponse.json();
+                    document.getElementById('appointmentCount').textContent = `${appointmentsData.appointments.length} appointments`;
+                    
+                    // Show recent appointments
+                    const recentAppointments = appointmentsData.appointments.slice(0, 3);
+                    const appointmentsHtml = recentAppointments.length > 0 
+                        ? recentAppointments.map(apt => `
+                            <div class="mb-2">
+                                <strong>${apt.appointment_date}</strong> at ${apt.appointment_time}<br>
+                                <small class="text-muted">Dr. ${apt.vet_name} - ${apt.reason}</small>
+                            </div>
+                        `).join('')
+                        : '<p class="text-muted">No recent appointments</p>';
+                    document.getElementById('recentAppointments').innerHTML = appointmentsHtml;
+                } else {
+                    document.getElementById('appointmentCount').textContent = 'Error loading';
+                    document.getElementById('recentAppointments').innerHTML = '<p class="text-muted">Error loading appointments</p>';
+                    console.error('Failed to load appointments:', appointmentsResponse.status);
+                }
+
+                // Load medical records count
+                console.log('Loading medical records from:', serviceUrls.medical + '/api/medical/');
+                const medicalResponse = await fetch(serviceUrls.medical + '/api/medical/', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (medicalResponse.ok) {
+                    const medicalData = await medicalResponse.json();
+                    document.getElementById('medicalCount').textContent = `${medicalData.medical_records.length} records`;
+                } else {
+                    document.getElementById('medicalCount').textContent = 'Error loading';
+                    console.error('Failed to load medical records:', medicalResponse.status);
+                }
+            } catch (error) {
+                console.error('Error loading dashboard data:', error);
+                document.getElementById('petCount').textContent = 'Connection error';
+                document.getElementById('appointmentCount').textContent = 'Connection error';
+                document.getElementById('medicalCount').textContent = 'Connection error';
+                document.getElementById('recentAppointments').innerHTML = '<p class="text-muted">Connection error</p>';
+            }
+        }
+
+        function showProfile() {
+            alert('Profile management feature coming soon!');
+        }
+
+        loadDashboardData();
+    </script>
+</body>
+</html>

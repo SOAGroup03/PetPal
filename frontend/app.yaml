@@ -1,0 +1,16 @@
+runtime: python39
+
+service: frontend
+instance_class: F2
+
+env_variables:
+  SECRET_KEY: "petpal-secret-key-2024"
+  USER_SERVICE_URL: "https://user-service-dot-petpal-467223.uc.r.appspot.com"
+  PET_SERVICE_URL: "https://pet-service-dot-petpal-467223.uc.r.appspot.com"
+  APPOINTMENT_SERVICE_URL: "https://appointment-service-dot-petpal-467223.uc.r.appspot.com"
+  MEDICAL_SERVICE_URL: "https://medical-service-dot-petpal-467223.uc.r.appspot.com"
+
+automatic_scaling:
+  min_instances: 1
+  max_instances: 10
+  target_cpu_utilization: 0.7
