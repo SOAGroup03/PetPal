@@ -2,9 +2,9 @@ name: PetPal CI/CD - Minimal
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [main, develop]
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 env:
   REGISTRY: ghcr.io
@@ -63,12 +63,17 @@ jobs:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
 
+    - name: Lowercase repository name
+      id: vars
+      run: |
+        echo "repo_lower=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+
     - name: Build and push user-service image
       uses: docker/build-push-action@v5
       with:
         context: ./services/user-service
         push: true
-        tags: ${{ env.REGISTRY }}/${{ github.repository }}/user-service:latest
+        tags: ${{ env.REGISTRY }}/${{ steps.vars.outputs.repo_lower }}/user-service:latest
 
   integration-tests:
     needs: build-and-push-user
