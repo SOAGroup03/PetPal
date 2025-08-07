@@ -43,6 +43,9 @@ class TestUserService:
             'password': 'testpass123',
             'phone': '+1234567890'
         }
+        print("Response JSON:", response.get_json())
+        print("Response Status:", response.status_code)
+
         response = client.post('/api/users/register', 
                              json=user_data,
                              content_type='application/json')
