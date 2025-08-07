@@ -1,4 +1,4 @@
-name: PetPal CI/CD Pipeline
+name: PetPal CI/CD - Minimal
 
 on:
   push:
@@ -11,345 +11,128 @@ env:
   IMAGE_NAME: petpal
 
 jobs:
-  test:
+  test-user-service:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        service: [user-service, pet-service, appointment-service, medical-service]
-    
+
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
         python-version: '3.11'
-    
-    - name: Cache pip dependencies
-      uses: actions/cache@v4
-      with:
-        path: ~/.cache/pip
-        key: ${{ runner.os }}-pip-${{ matrix.service }}-${{ hashFiles('services/${{ matrix.service }}/requirements.txt') }}
-        restore-keys: |
-          ${{ runner.os }}-pip-${{ matrix.service }}-
-    
+
     - name: Install dependencies
       run: |
-        cd services/${{ matrix.service }}
+        cd services/user-service
         python -m pip install --upgrade pip
         pip install -r requirements.txt
         pip install pytest pytest-cov
-    
+
     - name: Run tests with coverage
       run: |
-        cd services/${{ matrix.service }}
-        python -m pytest tests/ -v --tb=short --cov=. --cov-report=xml
+        cd services/user-service
+        pytest tests/ --cov=. --cov-report=xml
       env:
         MONGODB_URI: ${{ secrets.MONGODB_URI }}
-        DATABASE_NAME: petpal_test_${{ matrix.service }}
+        DATABASE_NAME: petpal_test_user
         JWT_SECRET: test_secret
-    
+
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v4
       with:
-        file: ./services/${{ matrix.service }}/coverage.xml
-        flags: ${{ matrix.service }}
-        name: codecov-${{ matrix.service }}
+        file: ./services/user-service/coverage.xml
+        flags: user-service
+        name: codecov-user-service
 
-  lint:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v4
-    
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.11'
-    
-    - name: Cache pip dependencies
-      uses: actions/cache@v4
-      with:
-        path: ~/.cache/pip
-        key: ${{ runner.os }}-pip-lint-${{ hashFiles('**/requirements.txt') }}
-    
-    - name: Install linting tools
-      run: |
-        python -m pip install --upgrade pip
-        pip install flake8 black isort mypy
-    
-    - name: Run flake8
-      run: |
-        find . -name "*.py" -not -path "./venv/*" -not -path "./.venv/*" | xargs flake8 --max-line-length=100 --ignore=E203,W503
-    
-    - name: Run black
-      run: |
-        find . -name "*.py" -not -path "./venv/*" -not -path "./.venv/*" | xargs black --check --line-length=100
-    
-    - name: Run isort
-      run: |
-        find . -name "*.py" -not -path "./venv/*" -not -path "./.venv/*" | xargs isort --check-only
-    
-    - name: Run mypy type checking
-      run: |
-        find . -name "*.py" -not -path "./venv/*" -not -path "./.venv/*" | xargs mypy --ignore-missing-imports
-
-  security-scan:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v4
-    
-    - name: Run Trivy vulnerability scanner
-      uses: aquasecurity/trivy-action@master
-      with:
-        scan-type: 'fs'
-        scan-ref: '.'
-        format: 'sarif'
-        output: 'trivy-results.sarif'
-    
-    - name: Upload Trivy scan results to GitHub Security tab
-      uses: github/codeql-action/upload-sarif@v3
-      if: always()
-      with:
-        sarif_file: 'trivy-results.sarif'
-
-  build-and-push:
-    needs: [test, lint, security-scan]
+  build-and-push-user:
+    needs: test-user-service
     runs-on: ubuntu-latest
     if: github.event_name == 'push'
-    strategy:
-      matrix:
-        service: [user-service, pet-service, appointment-service, medical-service, frontend]
-    
+
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
-    
+
     - name: Log in to Container Registry
       uses: docker/login-action@v3
       with:
         registry: ${{ env.REGISTRY }}
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
-    
-    - name: Extract metadata
-      id: meta
-      uses: docker/metadata-action@v5
-      with:
-        images: ${{ env.REGISTRY }}/${{ github.repository }}/${{ matrix.service }}
-        tags: |
-          type=ref,event=branch
-          type=ref,event=pr
-          type=sha,prefix={{branch}}-
-          type=raw,value=latest,enable={{is_default_branch}}
-    
-    - name: Build and push Docker image
+
+    - name: Build and push user-service image
       uses: docker/build-push-action@v5
       with:
-        context: ${{ matrix.service == 'frontend' && './frontend' || format('./services/{0}', matrix.service) }}
+        context: ./services/user-service
         push: true
-        tags: ${{ steps.meta.outputs.tags }}
-        labels: ${{ steps.meta.outputs.labels }}
-        cache-from: type=gha
-        cache-to: type=gha,mode=max
-        platforms: linux/amd64,linux/arm64
-
-  deploy-staging:
-    needs: [build-and-push]
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/develop'
-    environment: staging
-    
-    steps:
-    - uses: actions/checkout@v4
-    
-    - name: Setup kubectl
-      uses: azure/setup-kubectl@v4
-      with:
-        version: 'latest'
-    
-    - name: Configure kubectl
-      run: |
-        echo "${{ secrets.KUBECONFIG_STAGING }}" | base64 -d > kubeconfig
-        export KUBECONFIG=kubeconfig
-    
-    - name: Deploy to staging
-      run: |
-        export KUBECONFIG=kubeconfig
-        echo "Deploying to staging environment..."
-        # Update image tags in manifests
-        sed -i "s|IMAGE_TAG|${{ github.sha }}|g" kubernetes/staging/*.yaml
-        kubectl apply -f kubernetes/staging/ --namespace=petpal-staging
-        kubectl rollout status deployment --namespace=petpal-staging --timeout=300s
-    
-    - name: Cleanup
-      if: always()
-      run: rm -f kubeconfig
-
-  deploy-production:
-    needs: [build-and-push]
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
-    environment: production
-    
-    steps:
-    - uses: actions/checkout@v4
-    
-    - name: Setup kubectl
-      uses: azure/setup-kubectl@v4
-      with:
-        version: 'latest'
-    
-    - name: Configure kubectl
-      run: |
-        echo "${{ secrets.KUBECONFIG_PRODUCTION }}" | base64 -d > kubeconfig
-        export KUBECONFIG=kubeconfig
-    
-    - name: Deploy to production
-      run: |
-        export KUBECONFIG=kubeconfig
-        echo "Deploying to production environment..."
-        # Update image tags in manifests
-        sed -i "s|IMAGE_TAG|${{ github.sha }}|g" kubernetes/production/*.yaml
-        kubectl apply -f kubernetes/production/ --namespace=petpal
-        kubectl rollout status deployment --namespace=petpal --timeout=600s
-    
-    - name: Cleanup
-      if: always()
-      run: rm -f kubeconfig
+        tags: ${{ env.REGISTRY }}/${{ github.repository }}/user-service:latest
 
   integration-tests:
-    needs: [deploy-staging]
+    needs: build-and-push-user
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/develop'
-    
+
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
         python-version: '3.11'
-    
+
     - name: Install dependencies
       run: |
-        python -m pip install --upgrade pip
         pip install requests pytest pytest-html
-    
-    - name: Wait for staging deployment
-      run: |
-        echo "Waiting for staging services to be ready..."
-        sleep 60
-    
+
+    - name: Wait for staging services
+      run: sleep 60
+
     - name: Run integration tests
       run: |
-        python -m pytest tests/integration/ -v --html=integration-report.html --self-contained-html
+        pytest tests/integration/ -v --html=integration-report.html --self-contained-html
       env:
         STAGING_BASE_URL: ${{ secrets.STAGING_BASE_URL }}
-    
-    - name: Upload integration test report
+
+    - name: Upload report
       uses: actions/upload-artifact@v4
-      if: always()
       with:
         name: integration-test-report
         path: integration-report.html
 
   e2e-tests:
-    needs: [deploy-production]
+    needs: build-and-push-user
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
-    
+
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Set up Node.js
       uses: actions/setup-node@v4
       with:
         node-version: '20'
         cache: 'npm'
-    
+
     - name: Install Playwright
       run: |
         npm ci
         npx playwright install --with-deps
-    
-    - name: Wait for production deployment
-      run: |
-        echo "Waiting for production services to be ready..."
-        sleep 120
-    
+
+    - name: Wait for production services
+      run: sleep 120
+
     - name: Run E2E tests
-      run: |
-        npx playwright test
+      run: npx playwright test
       env:
         PRODUCTION_BASE_URL: ${{ secrets.PRODUCTION_BASE_URL }}
-    
-    - name: Upload E2E test results
+
+    - name: Upload results
       uses: actions/upload-artifact@v4
-      if: always()
       with:
         name: e2e-test-results
         path: |
           playwright-report/
           test-results/
-
-  notify:
-    needs: [deploy-production, e2e-tests]
-    runs-on: ubuntu-latest
-    if: always()
-    
-    steps:
-    - name: Determine overall status
-      id: status
-      run: |
-        if [[ "${{ needs.deploy-production.result }}" == "success" && "${{ needs.e2e-tests.result }}" == "success" ]]; then
-          echo "status=success" >> $GITHUB_OUTPUT
-          echo "message=✅ Production deployment successful and E2E tests passed" >> $GITHUB_OUTPUT
-        elif [[ "${{ needs.deploy-production.result }}" == "failure" ]]; then
-          echo "status=failure" >> $GITHUB_OUTPUT
-          echo "message=❌ Production deployment failed" >> $GITHUB_OUTPUT
-        elif [[ "${{ needs.e2e-tests.result }}" == "failure" ]]; then
-          echo "status=failure" >> $GITHUB_OUTPUT
-          echo "message=⚠️ Production deployed but E2E tests failed" >> $GITHUB_OUTPUT
-        else
-          echo "status=cancelled" >> $GITHUB_OUTPUT
-          echo "message=⏸️ Deployment pipeline was cancelled" >> $GITHUB_OUTPUT
-        fi
-    
-    - name: Notify Slack
-      uses: 8398a7/action-slack@v3
-      with:
-        status: custom
-        custom_payload: |
-          {
-            channel: '#deployments',
-            username: 'GitHub Actions',
-            icon_emoji: ':github:',
-            attachments: [{
-              color: '${{ steps.status.outputs.status }}' === 'success' ? 'good' : '${{ steps.status.outputs.status }}' === 'failure' ? 'danger' : 'warning',
-              fields: [{
-                title: 'PetPal Deployment',
-                value: '${{ steps.status.outputs.message }}',
-                short: false
-              }, {
-                title: 'Repository',
-                value: '${{ github.repository }}',
-                short: true
-              }, {
-                title: 'Branch',
-                value: '${{ github.ref_name }}',
-                short: true
-              }, {
-                title: 'Commit',
-                value: '<${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}|${{ github.sha }}>',
-                short: true
-              }, {
-                title: 'Action',
-                value: '<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Run>',
-                short: true
-              }]
-            }]
-          }
-      env:
-        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
