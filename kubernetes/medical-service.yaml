@@ -1,0 +1,66 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: medical-service
+  namespace: petpal
+  labels:
+    app: medical-service
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: medical-service
+  template:
+    metadata:
+      labels:
+        app: medical-service
+    spec:
+      containers:
+      - name: medical-service
+        image: petpal/medical-service:latest
+        ports:
+        - containerPort: 5004
+        env:
+        - name: MONGODB_URI
+          value: "mongodb+srv://acsujan69:petpal123@petpal.9k6d9qu.mongodb.net/"
+        - name: DATABASE_NAME
+          value: "petpal_medical"
+        - name: USER_SERVICE_URL
+          value: "http://user-service:5001"
+        - name: PET_SERVICE_URL
+          value: "http://pet-service:5002"
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 5004
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 5004
+          initialDelaySeconds: 5
+          periodSeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: medical-service
+  namespace: petpal
+  labels:
+    app: medical-service
+spec:
+  selector:
+    app: medical-service
+  ports:
+  - port: 5004
+    targetPort: 5004
+    protocol: TCP
+  type: ClusterIP

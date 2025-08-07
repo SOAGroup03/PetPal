@@ -1,0 +1,42 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  # - "first_rules.yml"
+  # - "second_rules.yml"
+
+scrape_configs:
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  - job_name: 'user-service'
+    static_configs:
+      - targets: ['user-service:5001']
+    metrics_path: '/metrics'
+    scrape_interval: 5s
+
+  - job_name: 'pet-service'
+    static_configs:
+      - targets: ['pet-service:5002']
+    metrics_path: '/metrics'
+    scrape_interval: 5s
+
+  - job_name: 'appointment-service'
+    static_configs:
+      - targets: ['appointment-service:5003']
+    metrics_path: '/metrics'
+    scrape_interval: 5s
+
+  - job_name: 'medical-service'
+    static_configs:
+      - targets: ['medical-service:5004']
+    metrics_path: '/metrics'
+    scrape_interval: 5s
+
+  - job_name: 'frontend'
+    static_configs:
+      - targets: ['frontend:3000']
+    metrics_path: '/metrics'
+    scrape_interval: 5s

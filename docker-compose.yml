@@ -1,64 +1,16 @@
+version: '3.8'
+
 services:
-  user-service:
-    build: ./microservices/user-service
-    container_name: petpal-user-service
-    restart: always
-    ports:
-      - "5001:5001"
-    environment:
-      - MONGO_URI=mongodb+srv://acsujan69:petpal123@petpal.9k6d9qu.mongodb.net/petpal
-      - SECRET_KEY=petpal-secret-key-2024
-    networks:
-      - petpal-network
-
-  pet-service:
-    build: ./microservices/pet-service
-    container_name: petpal-pet-service
-    restart: always
-    ports:
-      - "5002:5002"
-    environment:
-      - MONGO_URI=mongodb+srv://acsujan69:petpal123@petpal.9k6d9qu.mongodb.net/petpal
-      - SECRET_KEY=petpal-secret-key-2024
-    networks:
-      - petpal-network
-
-  appointment-service:
-    build: ./microservices/appointment-service
-    container_name: petpal-appointment-service
-    restart: always
-    ports:
-      - "5003:5003"
-    environment:
-      - MONGO_URI=mongodb+srv://acsujan69:petpal123@petpal.9k6d9qu.mongodb.net/petpal
-      - SECRET_KEY=petpal-secret-key-2024
-    networks:
-      - petpal-network
-
-  medical-service:
-    build: ./microservices/medical-service
-    container_name: petpal-medical-service
-    restart: always
-    ports:
-      - "5004:5004"
-    environment:
-      - MONGO_URI=mongodb+srv://acsujan69:petpal123@petpal.9k6d9qu.mongodb.net/petpal
-      - SECRET_KEY=petpal-secret-key-2024
-    networks:
-      - petpal-network
-
+  # Frontend Service
   frontend:
     build: ./frontend
-    container_name: petpal-frontend
-    restart: always
     ports:
-      - "5000:5000"
+      - "3000:3000"
     environment:
       - USER_SERVICE_URL=http://user-service:5001
       - PET_SERVICE_URL=http://pet-service:5002
       - APPOINTMENT_SERVICE_URL=http://appointment-service:5003
       - MEDICAL_SERVICE_URL=http://medical-service:5004
-      - SECRET_KEY=petpal-secret-key-2024
     depends_on:
       - user-service
       - pet-service
@@ -67,47 +19,95 @@ services:
     networks:
       - petpal-network
 
+  # User Microservice
+  user-service:
+    build: ./services/user-service
+    ports:
+      - "5001:5001"
+    environment:
+      - MONGODB_URI=mongodb+srv://acsujan69:petpal123@petpal.9k6d9qu.mongodb.net/
+      - DATABASE_NAME=petpal_users
+      - JWT_SECRET=your_jwt_secret_key_here
+    networks:
+      - petpal-network
+
+  # Pet Microservice
+  pet-service:
+    build: ./services/pet-service
+    ports:
+      - "5002:5002"
+    environment:
+      - MONGODB_URI=mongodb+srv://acsujan69:petpal123@petpal.9k6d9qu.mongodb.net/
+      - DATABASE_NAME=petpal_pets
+      - USER_SERVICE_URL=http://user-service:5001
+    depends_on:
+      - user-service
+    networks:
+      - petpal-network
+
+  # Appointment Microservice
+  appointment-service:
+    build: ./services/appointment-service
+    ports:
+      - "5003:5003"
+    environment:
+      - MONGODB_URI=mongodb+srv://acsujan69:petpal123@petpal.9k6d9qu.mongodb.net/
+      - DATABASE_NAME=petpal_appointments
+      - USER_SERVICE_URL=http://user-service:5001
+      - PET_SERVICE_URL=http://pet-service:5002
+    depends_on:
+      - user-service
+      - pet-service
+    networks:
+      - petpal-network
+
+  # Medical History Microservice
+  medical-service:
+    build: ./services/medical-service
+    ports:
+      - "5004:5004"
+    environment:
+      - MONGODB_URI=mongodb+srv://acsujan69:petpal123@petpal.9k6d9qu.mongodb.net/
+      - DATABASE_NAME=petpal_medical
+      - USER_SERVICE_URL=http://user-service:5001
+      - PET_SERVICE_URL=http://pet-service:5002
+    depends_on:
+      - user-service
+      - pet-service
+    networks:
+      - petpal-network
+
+  # Prometheus for monitoring
   prometheus:
     image: prom/prometheus:latest
-    container_name: petpal-prometheus
-    restart: always
     ports:
       - "9090:9090"
     volumes:
-      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
-      - prometheus_data:/prometheus
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
-      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
-      - '--web.console.templates=/usr/share/prometheus/consoles'
-      - '--web.enable-lifecycle'
-      - '--storage.tsdb.retention.time=30d'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
     networks:
       - petpal-network
 
+  # Grafana for visualization
   grafana:
     image: grafana/grafana:latest
-    container_name: petpal-grafana
-    restart: always
     ports:
-      - "3000:3000"
+      - "3001:3000"
     environment:
-      - GF_SECURITY_ADMIN_PASSWORD=petpal123
-      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
     volumes:
-      - grafana_data:/var/lib/grafana
-      - ./monitoring/grafana-datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml
-      - ./monitoring/grafana-dashboard.json:/etc/grafana/provisioning/dashboards/dashboard.json
-    depends_on:
-      - prometheus
+      - grafana-storage:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards
     networks:
       - petpal-network
-
-volumes:
-  prometheus_data:
-  grafana_data:
 
 networks:
   petpal-network:
     driver: bridge
+
+volumes:
+  grafana-storage:
